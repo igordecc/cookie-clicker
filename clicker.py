@@ -42,9 +42,16 @@ def convert_zeroes(production_unrefined):
         elif production_unrefined.__contains__("googol"):
             production_unrefined = production_unrefined.replace("googol", "")
             production_unrefined = float(production_unrefined) * 10 ** 27
+        elif production_unrefined == "":
+            production_unrefined = 0
+        else:
+            production_unrefined = float(production_unrefined)
     except:
         pass
     return production_unrefined
+
+
+
 
 def opa_opa():
     opt = Options()
@@ -54,6 +61,23 @@ def opa_opa():
     driver.get('https://orteil.dashnet.org/cookieclicker/')
     time.sleep(5)
     print(driver.title)
+
+    def get_production_from_popup(products):
+        production_str = [driver.execute_script(f"return Game.ObjectsById[{i}].tooltip();") for i in
+                          range(len(products))]
+        production = []
+        for j in production_str:
+            print()
+            production_unrefined = re.findall(r"(?<=<b>)([0-9a-zA-Z|,\.\s]*)(?=<\/b>)", j)
+
+            if len(production_unrefined) > 0:
+                production_unrefined = production_unrefined[0]
+
+                production_unrefined = convert_zeroes(production_unrefined)
+                print(production_unrefined)
+                if production_unrefined:
+                    production.append(production_unrefined)
+        return production
 
     # MAIN MAIN
     # if input():
@@ -78,43 +102,24 @@ def opa_opa():
             try:
                 products = driver.find_element(By.ID, 'products').find_elements_by_class_name('product')
                 title = [product.find_element(By.CLASS_NAME, "title").text for product in products]
-                print("title: " + str(title))
                 price = [convert_zeroes(product.find_element(By.CLASS_NAME, "price").text) for product in products]
-                print("price: " + str(price))
-                # production = [product.find_element(By.ID, 'tooltip').find_element(By.CLASS_NAME, "data").find_elements(By.TAG_NAME, 'b')[0].text for product in products]
-                # print("production: " + str(production))
-
                 status = ["enabled" if product.get_attribute("class").__contains__("enabled") else "disabled" for product in products]
+                production = get_production_from_popup(products)
+
+                print("title: " + str(title))
+                print("price: " + str(price))
                 print("status: " + str(status))
-
-
-                production_str = [driver.execute_script(f"return Game.ObjectsById[{i}].tooltip();") for i in range(len(products))]
-                production = []
-                print("production: " + str(production_str))
-                for j in production_str:
-                    print()
-                    production_unrefined = re.findall(r"(?<=<b>)([0-9a-zA-Z|,\.\s]*)(?=<\/b>)", j)
-
-                    if len(production_unrefined)>0:
-                        production_unrefined = production_unrefined[0]
-
-
-                        production_unrefined = convert_zeroes(production_unrefined)
-                        print(production_unrefined)
-                        if production_unrefined:
-                            production.append(production_unrefined)
-
-                    # for b in PyQuery(j)("div.data"):
-                    #     print(b)
-                    #     # production.append(b.text)
-                    #     production.append(b.text)
-                    #     break
-
                 print("production: " + str(production))
+                print(len(price))
+                print(len(production))
+
+                kpd = [i[0]/i[1] if i[0]!=0 and i[1]!=0 else 0 for i in zip(production, price)]
+
+                print("kpd: "+str(kpd))
+                print("min: "+str(min(kpd)))
+
             except Exception as e:
                 print(e)
-
-
 
                 [
                     '<div style="min-width:350px;padding:8px;">'
