@@ -164,7 +164,7 @@ def opa_opa():
                     '<div style="min-width:350px;padding:8px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:0px -336px;"></div><div style="float:right;text-align:right;"><span class="price disabled">11.88 sextillion</span></div><div class="name">???</div><small>[owned : 0</small>]<div class="line"></div><div class="description"></div></div>']
 
         # Auto-save
-        if (i % 10**4) == 0 and (i>10**4):
+        if (i % 10**3) == 0 and (i>10**3):
             try:
                 driver.find_element(By.ID, "prefsButton").click()
                 save_button = driver.find_element(By.XPATH, fr"//a[text()='Save to file']")
@@ -174,8 +174,6 @@ def opa_opa():
                 print("!!!")
             except:
                 print("Unsuccessful save :^(")
-
-
 
     driver.close()
 
