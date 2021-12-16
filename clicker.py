@@ -1,4 +1,6 @@
 # COOKIE !!!!!!!!!!!! +) (C) Trick2g
+from selenium.webdriver import Keys
+from selenium.webdriver.support import expected_conditions as EC
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -7,6 +9,9 @@ from selenium.webdriver.common.action_chains import ActionChains
 from pyquery import PyQuery
 import time
 import re
+import os
+
+from selenium.webdriver.support.wait import WebDriverWait
 
 
 def print_test(name):
@@ -51,16 +56,27 @@ def convert_zeroes(production_unrefined):
     return production_unrefined
 
 
-
-
 def opa_opa():
     opt = Options()
     opt.add_argument('start-maximized')
 
     driver = webdriver.Chrome(chrome_options=opt, executable_path='C:\\Program Files (X86)\\chromedriver.exe')
     driver.get('https://orteil.dashnet.org/cookieclicker/')
-    time.sleep(5)
+    driver.minimize_window()
+    time.sleep(2)
     print(driver.title)
+
+    # Locate latest save
+    list_saves = os.listdir(f"C:\\Users\\{os.getlogin()}\\Downloads\\")
+    list_saves_ref = list(filter(lambda x : re.search(r"McSpaghettiBakery \([0-9]*\)\.txt", x), list_saves))
+    list_saves_nums = [re.sub(r'[a-zA-Z|\s\.\(\)]', '', _str) for _str in list_saves_ref]
+    list_saves_nums = [int(_str) for _str in list_saves_nums]
+    latest_save_file = list_saves_ref[list_saves_nums.index(max(list_saves_nums))]
+
+    # Load latest save
+    driver.find_element(By.ID, "prefsButton").click()
+    driver.find_element(By.ID, "FileLoadInput").send_keys(f"C:\\Users\\{os.getlogin()}\\Downloads\\{latest_save_file}")
+    driver.find_element(By.CLASS_NAME, "menuClose").click()
 
     def get_production_from_popup(products):
         production_str = [driver.execute_script(f"return Game.ObjectsById[{i}].tooltip();") for i in
@@ -90,8 +106,8 @@ def opa_opa():
             time.sleep(1)
 
         # For clicking the cookie
-        driver.find_element(By.ID, 'bigCookie').click()
         try:
+            driver.find_element(By.ID, 'bigCookie').click()
             driver.find_element(By.CLASS_NAME, 'shimmer').click()
         except:
             pass
@@ -113,10 +129,24 @@ def opa_opa():
                 print(len(price))
                 print(len(production))
 
+
                 kpd = [i[0]/i[1] if i[0]!=0 and i[1]!=0 else 0 for i in zip(production, price)]
 
                 print("kpd: "+str(kpd))
-                print("min: "+str(min(kpd)))
+
+                status_for_kpd = []
+                if len(status)>len(kpd):
+                    status_for_kpd = status[:len(kpd)]
+                else:
+                    print("kpd: "+str(len(kpd)))
+                    print("status: "+str(len(status)))
+
+                if status_for_kpd[kpd.index(max(kpd))] == "enabled":
+                    kpd_enabled = [kpd_i[0] if kpd_i[1] == "enabled" else 0 for kpd_i in zip(kpd, status_for_kpd)]
+                    product_element_to_buy = driver.find_element(By.XPATH, fr"//div[@id='product{kpd.index(max(kpd_enabled))}' and @class='product unlocked enabled']")
+
+                    # driver.implicitly_wait(1)
+                    ActionChains(driver).move_to_element(product_element_to_buy).click(product_element_to_buy).perform()
 
             except Exception as e:
                 print(e)
