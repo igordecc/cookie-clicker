@@ -64,6 +64,7 @@ def opa_opa():
     driver.get('https://orteil.dashnet.org/cookieclicker/')
     driver.minimize_window()
     time.sleep(2)
+
     print(driver.title)
 
     # Locate latest save
@@ -92,6 +93,9 @@ def opa_opa():
                     production.append(production_unrefined)
         return production
 
+    # def get_upgrades_from_popup(upgrades, popup_script):
+
+
     # MAIN MAIN
     # if input():
     i = 0
@@ -113,25 +117,59 @@ def opa_opa():
         if (i % 100) == 0:
             # income/price  <- the higher - the better
             try:
+                # Products
                 products = driver.find_element(By.ID, 'products').find_elements_by_class_name('product')
-                title = [product.find_element(By.CLASS_NAME, "title").text for product in products]
-                price = [convert_zeroes(product.find_element(By.CLASS_NAME, "price").text) for product in products]
-                status = ["enabled" if product.get_attribute("class").__contains__("enabled") else "disabled" for product in products]
-                production = get_production_from_popup(products)
+                prod_title = [product.find_element(By.CLASS_NAME, "title").text for product in products]
+                prod_price = [convert_zeroes(product.find_element(By.CLASS_NAME, "price").text) for product in products]
+                prod_status = ["enabled" if product.get_attribute("class").__contains__("enabled") else "disabled" for product in products]
+                prod_production = get_production_from_popup(products)
 
-                kpd = [i[0]/i[1] if i[0]!=0 and i[1]!=0 else 0 for i in zip(production, price)]
+                prod_kpd = [i[0]/i[1] if i[0]!=0 and i[1]!=0 else 0 for i in zip(prod_production, prod_price)]
 
                 status_for_kpd = []
-                if len(status)>len(kpd):
-                    status_for_kpd = status[:len(kpd)]
+                if len(prod_status)>len(prod_kpd):
+                    status_for_kpd = prod_status[:len(prod_kpd)]
                 else:
                     print("kpd len status error")
-                    print("kpd len: "+str(len(kpd)))
-                    print("status len: "+str(len(status)))
+                    print("kpd len: "+str(len(prod_kpd)))
+                    print("status len: "+str(len(prod_status)))
 
-                if status_for_kpd[kpd.index(max(kpd))] == "enabled":
-                    kpd_enabled = [kpd_i[0] if kpd_i[1] == "enabled" else 0 for kpd_i in zip(kpd, status_for_kpd)]
-                    product_element_to_buy = driver.find_element(By.XPATH, fr"//div[@id='product{kpd.index(max(kpd_enabled))}' and @class='product unlocked enabled']")
+                # Upgrades
+                try:
+                    upgrades = driver.find_elements(By.XPATH, r"//div[@class='crate upgrade' or @class='crate upgrade enabled']")
+                    print(upgrades)
+                    upgrades_box = driver.find_element(By.XPATH, r"//div[@id='upgrades' and @class='storeSection upgradeBox']")
+                    # print("upgrades_box: " + str(upgrades_box))
+                    # print("upgrades_box: " + str(upgrades_box.get_attribute("innerHTML")))
+
+                    innerHTMLs = [upgrade.get_attribute("outerHTML") for upgrade in upgrades]
+                    description_script = [re.findall(r"(?<=\sfunction\(\)\{)([0-9a-zA-Z|,\.\s\=\[\]\;\(\)\{\}\'\\]*)(?=\}\()",
+                                                 upgrade.get_attribute("outerHTML")) for upgrade in upgrades]
+                    description_script = [ _inf[0] if _inf else "" for _inf in description_script]
+
+                    def get_upgrades_from_popup(upgrades, popup_script):
+                        print("popup_script[0]")
+                        upgrades_production_str = [driver.execute_script(_scr) for _scr in popup_script]
+                        for _upgrades_prod in upgrades_production_str:
+                            print(_upgrades_prod)
+
+                        # TODO extract x2 upgrade names from description
+                        # TODO extract upgrade prices
+                        # TODO calculate kpd based on overall production of prods
+                        #r'<div style="padding:8px 4px;min-width:350px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:-96px -432px;"></div><div style="float:right;text-align:right;"><span class="price">3.8 quadrillion</span></div><div class="name">Ritual rolling pins</div><div class="tag" style="color:#36a4ff;">[Tech]</div><div class="line"></div><div class="description">Grandmas are <b>twice</b> as efficient.<q>The result of years of scientific research!</q></div></div><div class="line"></div><div style="font-size:10px;font-weight:bold;color:#999;text-align:center;padding-bottom:4px;line-height:100%;">Click to research.</div>'
+                    get_upgrades_from_popup(upgrades, description_script)
+
+                except Exception as e:
+                    print(e)
+
+                # Pressing
+                global_kpd = prod_kpd
+                global_status = status_for_kpd
+                xpath_codes = [lambda num: fr"//div[@id='product{num}' and @class='product unlocked enabled']" for _code in range(len(prod_kpd))]
+
+                if global_status[global_kpd.index(max(global_kpd))] == "enabled":
+                    max_kpd_element_index = global_kpd.index(max(global_kpd))
+                    product_element_to_buy = driver.find_element(By.XPATH, xpath_codes[max_kpd_element_index](max_kpd_element_index) )
 
                     # driver.implicitly_wait(1)
                     ActionChains(driver).move_to_element(product_element_to_buy).click(product_element_to_buy).perform()
@@ -139,32 +177,9 @@ def opa_opa():
             except Exception as e:
                 print(e)
 
-                [
-                    '<div style="min-width:350px;padding:8px;">'
-                    '   <div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:0px 0px;">'
-                    '       </div><div style="float:right;text-align:right;"><span class="price">4.671 billion</span></div>'
-                    '           <div class="name">Cursor</div><small>[owned : 140</small>]<div class="line"></div><div class="description">Autoclicks once every 10 seconds.</div><div class="line"></div>'
-                    '           <div class="data">&bull; each cursor produces <b>25,500</b> cookies per second<br>&bull; 140 cursors producing <b>3.57 million</b> cookies per second (<b>0%</b> of total CpS)<br>&bull; <b>207.973 billion</b> cookies clicked so far</div></div>',
-                    '<div style="min-width:350px;padding:8px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:-48px 0px;"></div><div style="float:right;text-align:right;"><span class="price">31.141 billion</span></div><div class="name">Grandma</div><small>[owned : 140</small>]<div class="line"></div><div class="description">A nice grandma to bake more cookies.</div><div class="line"></div><div class="data">&bull; each grandma produces <b>240,746</b> cookies per second<br>&bull; 140 grandmas producing <b>33.705 million</b> cookies per second (<b>0.1%</b> of total CpS)<br>&bull; ...also boosting some other buildings : farms +140%, mines +70%, factories +46.7%, shipments +20%, alchemy labs +17.5%, portals +15.6%, banks +35%, temples +28%, wizard towers +23.3% - all combined, these boosts account for <b>1.769 billion</b> cookies per second (<b>3.3%</b> of total CpS)<br>&bull; <b>834.69 billion</b> cookies baked so far</div></div>',
-                    '<div style="min-width:350px;padding:8px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:-96px 0px;"></div><div style="float:right;text-align:right;"><span class="price">4.499 billion</span></div><div class="name">Farm</div><small>[owned : 109</small>]<div class="line"></div><div class="description">Grows cookie plants from cookie seeds.</div><div class="line"></div><div class="data">&bull; each farm produces <b>4,514</b> cookies per second<br>&bull; 109 farms producing <b>492,025</b> cookies per second (<b>0%</b> of total CpS)<br>&bull; <b>26.273 billion</b> cookies harvested so far</div></div>',
-                    '<div style="min-width:350px;padding:8px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:-144px 0px;"></div><div style="float:right;text-align:right;"><span class="price">5.245 billion</span></div><div class="name">Mine</div><small>[owned : 93</small>]<div class="line"></div><div class="description">Mines out cookie dough and chocolate chips.</div><div class="line"></div><div class="data">&bull; each mine produces <b>9,392</b> cookies per second<br>&bull; 93 mines producing <b>873,493</b> cookies per second (<b>0%</b> of total CpS)<br>&bull; <b>55.815 billion</b> cookies mined so far</div></div>',
-                    '<div style="min-width:350px;padding:8px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:-192px 0px;"></div><div style="float:right;text-align:right;"><span class="price">18.574 billion</span></div><div class="name">Factory</div><small>[owned : 85</small>]<div class="line"></div><div class="description">Produces large quantities of cookies.</div><div class="line"></div><div class="data">&bull; each factory produces <b>44,826</b> cookies per second<br>&bull; 85 factories producing <b>3.81 million</b> cookies per second (<b>0%</b> of total CpS)<br>&bull; <b>210.563 billion</b> cookies mass-produced so far</div></div>',
-                    '<div style="min-width:350px;padding:8px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:-720px 0px;"></div><div style="float:right;text-align:right;"><span class="price">14.055 billion</span></div><div class="name">Bank</div><small>[owned : 66</small>]<div class="line"></div><div class="description">Generates cookies from interest.</div><div class="line"></div><div class="data">&bull; each bank produces <b>222,173</b> cookies per second<br>&bull; 66 banks producing <b>14.663 million</b> cookies per second (<b>0%</b> of total CpS)<br>&bull; <b>852.307 billion</b> cookies banked so far</div></div>',
-                    '<div style="min-width:350px;padding:8px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:-768px 0px;"></div><div style="float:right;text-align:right;"><span class="price">28.376 billion</span></div><div class="name">Temple</div><small>[owned : 52</small>]<div class="line"></div><div class="description">Full of precious, ancient chocolate.</div><div class="line"></div><div class="data">&bull; each temple produces <b>1.174 million</b> cookies per second<br>&bull; 52 temples producing <b>61.029 million</b> cookies per second (<b>0.1%</b> of total CpS)<br>&bull; <b>3.253 trillion</b> cookies discovered so far</div></div>',
-                    '<div style="min-width:350px;padding:8px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:-816px 0px;"></div><div style="float:right;text-align:right;"><span class="price">115.733 billion</span></div><div class="name">Wizard tower</div><small>[owned : 42</small>]<div class="line"></div><div class="description">Summons cookies with magic spells.</div><div class="line"></div><div class="data">&bull; each wizard tower produces <b>3.19 million</b> cookies per second<br>&bull; 42 wizard towers producing <b>133.962 million</b> cookies per second (<b>0.2%</b> of total CpS)<br>&bull; <b>8.661 trillion</b> cookies summoned so far</div></div>',
-                    '<div style="min-width:350px;padding:8px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:-240px 0px;"></div><div style="float:right;text-align:right;"><span class="price">584.698 billion</span></div><div class="name">Shipment</div><small>[owned : 34</small>]<div class="line"></div><div class="description">Brings in fresh cookies from the cookie planet.</div><div class="line"></div><div class="data">&bull; each shipment produces <b>18.521 million</b> cookies per second<br>&bull; 34 shipments producing <b>629.731 million</b> cookies per second (<b>1.2%</b> of total CpS)<br>&bull; <b>34.012 trillion</b> cookies shipped so far</div></div>',
-                    '<div style="min-width:350px;padding:8px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:-288px 0px;"></div><div style="float:right;text-align:right;"><span class="price disabled">4.275 trillion</span></div><div class="name">Alchemy lab</div><small>[owned : 29</small>]<div class="line"></div><div class="description">Turns gold into cookies!</div><div class="line"></div><div class="data">&bull; each alchemy lab produces <b>110.499 million</b> cookies per second<br>&bull; 29 alchemy labs producing <b>3.204 billion</b> cookies per second (<b>5.9%</b> of total CpS)<br>&bull; <b>156.868 trillion</b> cookies transmuted so far</div></div>',
-                    '<div style="min-width:350px;padding:8px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:-336px 0px;"></div><div style="float:right;text-align:right;"><span class="price disabled">32.59 trillion</span></div><div class="name">Portal</div><small>[owned : 25</small>]<div class="line"></div><div class="description">Opens a door to the Cookieverse.</div><div class="line"></div><div class="data">&bull; each portal produces <b>339.595 million</b> cookies per second<br>&bull; 25 portals producing <b>8.49 billion</b> cookies per second (<b>15.8%</b> of total CpS)<br>&bull; <b>277.493 trillion</b> cookies retrieved so far</div></div>',
-                    '<div style="min-width:350px;padding:8px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:-384px 0px;"></div><div style="float:right;text-align:right;"><span class="price disabled">112.78 trillion</span></div><div class="name">Time machine</div><small>[owned : 15</small>]<div class="line"></div><div class="description">Brings cookies from the past, before they were even eaten.</div><div class="line"></div><div class="data">&bull; each time machine produces <b>1.91 billion</b> cookies per second<br>&bull; 15 time machines producing <b>28.653 billion</b> cookies per second (<b>53.2%</b> of total CpS)<br>&bull; <b>536.008 trillion</b> cookies recovered so far</div></div>',
-                    '<div style="min-width:350px;padding:8px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:-624px 0px;"></div><div style="float:right;text-align:right;"><span class="price disabled">294.358 trillion</span></div><div class="name">Antimatter condenser</div><small>[owned : 4</small>]<div class="line"></div><div class="description">Condenses the antimatter in the universe into cookies.</div><div class="line"></div><div class="data">&bull; each antimatter condenser produces <b>3.159 billion</b> cookies per second<br>&bull; 4 antimatter condensers producing <b>12.637 billion</b> cookies per second (<b>23.5%</b> of total CpS)<br>&bull; <b>104.731 trillion</b> cookies condensed so far</div></div>',
-                    '<div style="min-width:350px;padding:8px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:-672px 0px;"></div><div style="float:right;text-align:right;"><span class="price disabled">2.079 quadrillion</span></div><div class="name">Prism</div><small>[owned : 0</small>]<div class="line"></div><div class="description">Converts light itself into cookies.</div></div>',
-                    '<div style="min-width:350px;padding:8px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:0px -336px;"></div><div style="float:right;text-align:right;"><span class="price disabled">25.74 quadrillion</span></div><div class="name">???</div><small>[owned : 0</small>]<div class="line"></div><div class="description"></div></div>',
-                    '<div style="min-width:350px;padding:8px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:0px -336px;"></div><div style="float:right;text-align:right;"><span class="price disabled">306.9 quadrillion</span></div><div class="name">???</div><small>[owned : 0</small>]<div class="line"></div><div class="description"></div></div>',
-                    '<div style="min-width:350px;padding:8px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:0px -336px;"></div><div style="float:right;text-align:right;"><span class="price disabled">70.29 quintillion</span></div><div class="name">???</div><small>[owned : 0</small>]<div class="line"></div><div class="description"></div></div>',
-                    '<div style="min-width:350px;padding:8px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:0px -336px;"></div><div style="float:right;text-align:right;"><span class="price disabled">11.88 sextillion</span></div><div class="name">???</div><small>[owned : 0</small>]<div class="line"></div><div class="description"></div></div>']
 
         # Auto-save
-        if (i % 10**3) == 0 and (i>10**3):
+        if (i % 10**4) == 0 and (i>10**4):
             try:
                 driver.find_element(By.ID, "prefsButton").click()
                 save_button = driver.find_element(By.XPATH, fr"//a[text()='Save to file']")
@@ -174,6 +189,27 @@ def opa_opa():
                 print("!!!")
             except:
                 print("Unsuccessful save :^(")
+
+                [
+                    '<div onclick="Game.UpgradesById[67].click(event);" class="crate upgrade enabled" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[67],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade2" style="background-position:-96px -432px;"></div>',
+                    '<div onclick="Game.UpgradesById[106].click(event);" class="crate upgrade enabled" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[106],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade0" style="background-position:-576px -192px;"></div>',
+                    '<div onclick="Game.UpgradesById[107].click(event);" class="crate upgrade enabled" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[107],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade1" style="background-position:-624px -192px;"></div>',
+                    '<div onclick="Game.UpgradesById[150].click(event);" class="crate upgrade enabled" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[150],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade3" style="background-position:-864px -192px;"></div>',
+                    '<div onclick="Game.UpgradesById[151].click(event);" class="crate upgrade enabled" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[151],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade4" style="background-position:-864px -144px;"></div>',
+                    '<div onclick="Game.UpgradesById[191].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[191],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade5" style="background-position:-528px -768px;"></div>',
+                    '<div onclick="Game.UpgradesById[256].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[256],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade6" style="background-position:-1248px -144px;"></div>',
+                    '<div onclick="Game.UpgradesById[257].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[257],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade7" style="background-position:-1248px -192px;"></div>',
+                    '<div onclick="Game.UpgradesById[108].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[108],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade8" style="background-position:-864px -624px;"></div>',
+                    '<div onclick="Game.UpgradesById[258].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[258],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade9" style="background-position:-1296px -144px;"></div>',
+                    '<div onclick="Game.UpgradesById[176].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[176],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade10" style="background-position:-672px -48px;"></div>',
+                    '<div onclick="Game.UpgradesById[180].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[180],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade11" style="background-position:-480px -432px;"></div>',
+                    '<div onclick="Game.UpgradesById[416].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[416],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade12" style="background-position:-912px 0px;"></div>',
+                    '<div onclick="Game.UpgradesById[259].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[259],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade13" style="background-position:-1296px -192px;"></div>',
+                    '<div onclick="Game.UpgradesById[260].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[260],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade14" style="background-position:-1344px -144px;"></div>',
+                    '<div onclick="Game.UpgradesById[417].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[417],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade15" style="background-position:-912px -48px;"></div>',
+                    '<div onclick="Game.UpgradesById[261].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[261],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade16" style="background-position:-1344px -192px;"></div>',
+                    '<div onclick="Game.UpgradesById[366].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[366],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade17" style="background-position:-528px -816px;"></div>',
+                    '<div onclick="Game.UpgradesById[262].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[262],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade18" style="background-position:-1392px -144px;"></div>']
 
     driver.close()
 
