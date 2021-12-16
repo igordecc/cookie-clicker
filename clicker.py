@@ -83,14 +83,11 @@ def opa_opa():
                           range(len(products))]
         production = []
         for j in production_str:
-            print()
             production_unrefined = re.findall(r"(?<=<b>)([0-9a-zA-Z|,\.\s]*)(?=<\/b>)", j)
-
             if len(production_unrefined) > 0:
                 production_unrefined = production_unrefined[0]
 
                 production_unrefined = convert_zeroes(production_unrefined)
-                print(production_unrefined)
                 if production_unrefined:
                     production.append(production_unrefined)
         return production
@@ -122,24 +119,15 @@ def opa_opa():
                 status = ["enabled" if product.get_attribute("class").__contains__("enabled") else "disabled" for product in products]
                 production = get_production_from_popup(products)
 
-                print("title: " + str(title))
-                print("price: " + str(price))
-                print("status: " + str(status))
-                print("production: " + str(production))
-                print(len(price))
-                print(len(production))
-
-
                 kpd = [i[0]/i[1] if i[0]!=0 and i[1]!=0 else 0 for i in zip(production, price)]
-
-                print("kpd: "+str(kpd))
 
                 status_for_kpd = []
                 if len(status)>len(kpd):
                     status_for_kpd = status[:len(kpd)]
                 else:
-                    print("kpd: "+str(len(kpd)))
-                    print("status: "+str(len(status)))
+                    print("kpd len status error")
+                    print("kpd len: "+str(len(kpd)))
+                    print("status len: "+str(len(status)))
 
                 if status_for_kpd[kpd.index(max(kpd))] == "enabled":
                     kpd_enabled = [kpd_i[0] if kpd_i[1] == "enabled" else 0 for kpd_i in zip(kpd, status_for_kpd)]
@@ -175,7 +163,19 @@ def opa_opa():
                     '<div style="min-width:350px;padding:8px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:0px -336px;"></div><div style="float:right;text-align:right;"><span class="price disabled">70.29 quintillion</span></div><div class="name">???</div><small>[owned : 0</small>]<div class="line"></div><div class="description"></div></div>',
                     '<div style="min-width:350px;padding:8px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:0px -336px;"></div><div style="float:right;text-align:right;"><span class="price disabled">11.88 sextillion</span></div><div class="name">???</div><small>[owned : 0</small>]<div class="line"></div><div class="description"></div></div>']
 
-        # int(driver.find_element(By.ID, 'cookies').text.split(' ')[0].replace('.', ''))
+        # Auto-save
+        if (i % 10**4) == 0 and (i>10**4):
+            try:
+                driver.find_element(By.ID, "prefsButton").click()
+                save_button = driver.find_element(By.XPATH, fr"//a[text()='Save to file']")
+                print(save_button.get_attribute("innerHTML"))
+                driver.find_element(By.XPATH, fr"//a[text()='Save to file']").click()
+                driver.find_element(By.CLASS_NAME, "menuClose").click()
+                print("!!!")
+            except:
+                print("Unsuccessful save :^(")
+
+
 
     driver.close()
 
