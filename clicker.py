@@ -223,10 +223,9 @@ def opa_opa():
         if (i % 10**4) == 0 and (i>10**4):
             try:
                 driver.find_element(By.ID, "prefsButton").click()
-                save_button = driver.find_element(By.XPATH, fr"//a[text()='Save to file']")
                 driver.find_element(By.XPATH, fr"//a[text()='Save to file']").click()
                 driver.find_element(By.CLASS_NAME, "menuClose").click()
-                print("!!!")
+                print("Saved!!!")
             except:
                 print("Unsuccessful save :^(")
     driver.close()
