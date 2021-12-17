@@ -87,10 +87,13 @@ def opa_opa():
             production_unrefined = re.findall(r"(?<=<b>)([0-9a-zA-Z|,\.\s]*)(?=<\/b>)", j)
             if len(production_unrefined) > 0:
                 production_unrefined = production_unrefined[0]
-
                 production_unrefined = convert_zeroes(production_unrefined)
                 if production_unrefined:
                     production.append(production_unrefined)
+                else:
+                    production.append(0)
+            else:
+                production.append(0)
         return production
 
     # def get_upgrades_from_popup(upgrades, popup_script):
@@ -109,7 +112,10 @@ def opa_opa():
         # For clicking the cookie
         try:
             driver.find_element(By.ID, 'bigCookie').click()
-            driver.find_element(By.CLASS_NAME, 'shimmer').click()
+            shimmers = driver.find_elements(By.CLASS_NAME, 'shimmer')
+            for shimmer in shimmers:
+                if shimmer.get_attribute("alt") != "Wrath cookie":
+                    shimmer.click()
         except:
             pass
 
@@ -118,51 +124,65 @@ def opa_opa():
             # income/price  <- the higher - the better
             try:
                 # Products
-                products = driver.find_element(By.ID, 'products').find_elements_by_class_name('product')
-                prod_title = [product.find_element(By.CLASS_NAME, "title").text for product in products]
-                prod_price = [convert_zeroes(product.find_element(By.CLASS_NAME, "price").text) for product in products]
-                prod_status = ["enabled" if product.get_attribute("class").__contains__("enabled") else "disabled" for product in products]
-                prod_production = get_production_from_popup(products)
+                def get_products_info():
+                    try:
+                        products = driver.find_element(By.ID, 'products').find_elements_by_class_name('product')
+                        prod_title = [product.find_element(By.CLASS_NAME, "title").text for product in products]
+                        prod_price = [convert_zeroes(product.find_element(By.CLASS_NAME, "price").text) for product in products]
+                        prod_production = get_production_from_popup(products)
+                        prod_kpd = [i[0]/i[1] if i[0]!=0 and i[1]!=0 else 0 for i in zip(prod_production, prod_price)]
+                        prod_owned = [product.find_element(By.XPATH, "//div[@id='title owned']").text for product in products]
+                        print(prod_title)
+                        print(prod_owned)
 
-                prod_kpd = [i[0]/i[1] if i[0]!=0 and i[1]!=0 else 0 for i in zip(prod_production, prod_price)]
+                        prod_status = [
+                            "enabled" if product.get_attribute("class").__contains__("enabled") else "disabled" for
+                            product in products]
+                        # cut the ??? products
+                        if len(prod_status)>len(prod_kpd):
+                            prod_status = prod_status[:len(prod_kpd)]
 
-                status_for_kpd = []
-                if len(prod_status)>len(prod_kpd):
-                    status_for_kpd = prod_status[:len(prod_kpd)]
-                else:
-                    print("kpd len status error")
-                    print("kpd len: "+str(len(prod_kpd)))
-                    print("status len: "+str(len(prod_status)))
+                        # find max obtainable product
+                        # if product if fresh (0 of this product) and product price criteria -> biggest product price== 3*(biggest-1)product : then
+                        # biggest product price product kpd = 999
+
+                        return prod_kpd, prod_status
+                    except Exception as e:
+                        print("!get_products_info error! : " + str(e))
 
                 # Upgrades
-                try:
-                    upgrades = driver.find_elements(By.XPATH, r"//div[@class='crate upgrade' or @class='crate upgrade enabled']")
-                    print(upgrades)
-                    upgrades_box = driver.find_element(By.XPATH, r"//div[@id='upgrades' and @class='storeSection upgradeBox']")
-                    # print("upgrades_box: " + str(upgrades_box))
-                    # print("upgrades_box: " + str(upgrades_box.get_attribute("innerHTML")))
+                def get_upgrades_info():
+                    try:
+                        upgrades = driver.find_elements(By.XPATH, r"//div[@class='crate upgrade' or @class='crate upgrade enabled']")
+                        # print(upgrades)
+                        upgrades_box = driver.find_element(By.XPATH, r"//div[@id='upgrades' and @class='storeSection upgradeBox']")
+                        # print("upgrades_box: " + str(upgrades_box))
+                        # print("upgrades_box: " + str(upgrades_box.get_attribute("innerHTML")))
 
-                    innerHTMLs = [upgrade.get_attribute("outerHTML") for upgrade in upgrades]
-                    description_script = [re.findall(r"(?<=\sfunction\(\)\{)([0-9a-zA-Z|,\.\s\=\[\]\;\(\)\{\}\'\\]*)(?=\}\()",
-                                                 upgrade.get_attribute("outerHTML")) for upgrade in upgrades]
-                    description_script = [ _inf[0] if _inf else "" for _inf in description_script]
+                        innerHTMLs = [upgrade.get_attribute("outerHTML") for upgrade in upgrades]
+                        description_script = [re.findall(r"(?<=\sfunction\(\)\{)([0-9a-zA-Z|,\.\s\=\[\]\;\(\)\{\}\'\\]*)(?=\}\()",
+                                                     upgrade.get_attribute("outerHTML")) for upgrade in upgrades]
+                        description_script = [ _inf[0] if _inf else "" for _inf in description_script]
 
-                    def get_upgrades_from_popup(upgrades, popup_script):
-                        print("popup_script[0]")
-                        upgrades_production_str = [driver.execute_script(_scr) for _scr in popup_script]
-                        for _upgrades_prod in upgrades_production_str:
-                            print(_upgrades_prod)
 
-                        # TODO extract x2 upgrade names from description
-                        # TODO extract upgrade prices
-                        # TODO calculate kpd based on overall production of prods
-                        #r'<div style="padding:8px 4px;min-width:350px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:-96px -432px;"></div><div style="float:right;text-align:right;"><span class="price">3.8 quadrillion</span></div><div class="name">Ritual rolling pins</div><div class="tag" style="color:#36a4ff;">[Tech]</div><div class="line"></div><div class="description">Grandmas are <b>twice</b> as efficient.<q>The result of years of scientific research!</q></div></div><div class="line"></div><div style="font-size:10px;font-weight:bold;color:#999;text-align:center;padding-bottom:4px;line-height:100%;">Click to research.</div>'
-                    get_upgrades_from_popup(upgrades, description_script)
+                        # extract info
+                        # print("popup_script[0]")
+                        upgrades_production_str = [driver.execute_script(_scr) for _scr in description_script]
+                        # for _upgrades_prod in upgrades_production_str:
+                        #     print(_upgrades_prod)
 
-                except Exception as e:
-                    print(e)
+                            # TODO extract x2 upgrade names from description
+                            # TODO extract upgrade prices
+                            # TODO calculate kpd based on overall production of prods
+                            #r'<div style="padding:8px 4px;min-width:350px;"><div class="icon" style="float:left;margin-left:-8px;margin-top:-8px;background-position:-96px -432px;"></div><div style="float:right;text-align:right;"><span class="price">3.8 quadrillion</span></div><div class="name">Ritual rolling pins</div><div class="tag" style="color:#36a4ff;">[Tech]</div><div class="line"></div><div class="description">Grandmas are <b>twice</b> as efficient.<q>The result of years of scientific research!</q></div></div><div class="line"></div><div style="font-size:10px;font-weight:bold;color:#999;text-align:center;padding-bottom:4px;line-height:100%;">Click to research.</div>'
 
-                # Pressing
+                    except Exception as e:
+                        print("!get_upgrades_info error! : " + str(e))
+
+                get_upgrades_info()
+                prod_kpd, status_for_kpd = get_products_info()
+
+                # Pressing and judging
                 global_kpd = prod_kpd
                 global_status = status_for_kpd
                 xpath_codes = [lambda num: fr"//div[@id='product{num}' and @class='product unlocked enabled']" for _code in range(len(prod_kpd))]
@@ -183,7 +203,6 @@ def opa_opa():
             try:
                 driver.find_element(By.ID, "prefsButton").click()
                 save_button = driver.find_element(By.XPATH, fr"//a[text()='Save to file']")
-                print(save_button.get_attribute("innerHTML"))
                 driver.find_element(By.XPATH, fr"//a[text()='Save to file']").click()
                 driver.find_element(By.CLASS_NAME, "menuClose").click()
                 print("!!!")
