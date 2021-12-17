@@ -38,11 +38,11 @@ def convert_zeroes(production_unrefined):
         elif production_unrefined.__contains__("quadrillion"):
             production_unrefined = production_unrefined.replace("quadrillion", "")
             production_unrefined = float(production_unrefined) * 10 ** 18
-        elif production_unrefined.__contains__("nonillion"):
-            production_unrefined = production_unrefined.replace("nonillion", "")
+        elif production_unrefined.__contains__("quintillion"):
+            production_unrefined = production_unrefined.replace("quintillion", "")
             production_unrefined = float(production_unrefined) * 10 ** 21
-        elif production_unrefined.__contains__("decillion"):
-            production_unrefined = production_unrefined.replace("decillion", "")
+        elif production_unrefined.__contains__("sextillion"):
+            production_unrefined = production_unrefined.replace("sextillion", "")
             production_unrefined = float(production_unrefined) * 10 ** 24
         elif production_unrefined.__contains__("googol"):
             production_unrefined = production_unrefined.replace("googol", "")
@@ -57,19 +57,21 @@ def convert_zeroes(production_unrefined):
 
 
 def opa_opa():
-    opt = Options()
-    opt.add_argument('start-maximized')
+    options = webdriver.ChromeOptions()
+    options.add_argument('start-maximized')
+    options.add_experimental_option("detach", True)
 
-    driver = webdriver.Chrome(chrome_options=opt, executable_path='C:\\Program Files (X86)\\chromedriver.exe')
+    driver = webdriver.Chrome(chrome_options=options, executable_path='C:\\Program Files (X86)\\chromedriver.exe')
     driver.get('https://orteil.dashnet.org/cookieclicker/')
     driver.minimize_window()
-    time.sleep(2)
+    time.sleep(1)
 
     print(driver.title)
 
     # Locate latest save
     list_saves = os.listdir(f"C:\\Users\\{os.getlogin()}\\Downloads\\")
     list_saves_ref = list(filter(lambda x : re.search(r"McSpaghettiBakery \([0-9]*\)\.txt", x), list_saves))
+    # list_saves_ref = list(filter(lambda x : re.search(r"RoyalPuppetBakery \([0-9]*\)\.txt", x), list_saves))
     list_saves_nums = [re.sub(r'[a-zA-Z|\s\.\(\)]', '', _str) for _str in list_saves_ref]
     list_saves_nums = [int(_str) for _str in list_saves_nums]
     latest_save_file = list_saves_ref[list_saves_nums.index(max(list_saves_nums))]
@@ -127,14 +129,10 @@ def opa_opa():
                 def get_products_info():
                     try:
                         products = driver.find_element(By.ID, 'products').find_elements_by_class_name('product')
-                        prod_title = [product.find_element(By.CLASS_NAME, "title").text for product in products]
                         prod_price = [convert_zeroes(product.find_element(By.CLASS_NAME, "price").text) for product in products]
                         prod_production = get_production_from_popup(products)
                         prod_kpd = [i[0]/i[1] if i[0]!=0 and i[1]!=0 else 0 for i in zip(prod_production, prod_price)]
-                        prod_owned = [product.find_element(By.XPATH, "//div[@id='title owned']").text for product in products]
-                        print(prod_title)
-                        print(prod_owned)
-
+                        prod_kpd[1] = -1    # keck grandmas
                         prod_status = [
                             "enabled" if product.get_attribute("class").__contains__("enabled") else "disabled" for
                             product in products]
@@ -142,11 +140,28 @@ def opa_opa():
                         if len(prod_status)>len(prod_kpd):
                             prod_status = prod_status[:len(prod_kpd)]
 
+                        prod_titles = [product.text for product in driver.find_elements(By.XPATH, "//div[@class='content']/div[@class='title']")]
+                        prod_owned = [product.text for product in driver.find_elements(By.XPATH, "//div[@class='content']/div[@class='title owned']")]
+
+                        # make to buy undiscovered products
+                        for _price_i in range(1, len(prod_price)):
+                            if prod_kpd[_price_i]==0 and prod_price[_price_i-1]*4>prod_price[_price_i]:
+                                prod_kpd[_price_i] = 2**32
+                                break
+                            elif  prod_kpd[_price_i]==0:
+                                break
+
+                        # print(prod_kpd)
+                        # print(prod_price)
+                        # print(prod_status)
+                        # print(prod_titles)
+                        # print(prod_owned)
+
                         # find max obtainable product
                         # if product if fresh (0 of this product) and product price criteria -> biggest product price== 3*(biggest-1)product : then
                         # biggest product price product kpd = 999
 
-                        return prod_kpd, prod_status
+                        return prod_kpd, prod_status, prod_titles, prod_owned
                     except Exception as e:
                         print("!get_products_info error! : " + str(e))
 
@@ -160,16 +175,22 @@ def opa_opa():
                         # print("upgrades_box: " + str(upgrades_box.get_attribute("innerHTML")))
 
                         innerHTMLs = [upgrade.get_attribute("outerHTML") for upgrade in upgrades]
-                        description_script = [re.findall(r"(?<=\sfunction\(\)\{)([0-9a-zA-Z|,\.\s\=\[\]\;\(\)\{\}\'\\]*)(?=\}\()",
+
+                        description_script = [ _inf[0] if _inf else "" for _inf in
+                                               [re.findall(r"(?<=\sfunction\(\)\{)([0-9a-zA-Z|,\.\s\=\[\]\;\(\)\{\}\'\\]*)(?=\}\()",
                                                      upgrade.get_attribute("outerHTML")) for upgrade in upgrades]
-                        description_script = [ _inf[0] if _inf else "" for _inf in description_script]
+                                               ]
 
-
-                        # extract info
-                        # print("popup_script[0]")
+                        # press anything, that isn't a cookie multiplier
                         upgrades_production_str = [driver.execute_script(_scr) for _scr in description_script]
-                        # for _upgrades_prod in upgrades_production_str:
-                        #     print(_upgrades_prod)
+                        for _up_i in range(len(upgrades_production_str)):
+                            _upgrades_prod = upgrades_production_str[_up_i]
+
+                            # upgrade_name = re.findall(r"[a-zA-Z\s]*(?= are <b>twice</b> as efficient)", _upgrades_prod)
+                            # print(upgrade_name)
+                            if not re.findall(r"Cookie production multiplier", _upgrades_prod):
+                                upgrades[_up_i].click()
+                        return upgrades_production_str
 
                             # TODO extract x2 upgrade names from description
                             # TODO extract upgrade prices
@@ -180,7 +201,7 @@ def opa_opa():
                         print("!get_upgrades_info error! : " + str(e))
 
                 get_upgrades_info()
-                prod_kpd, status_for_kpd = get_products_info()
+                prod_kpd, status_for_kpd, prod_title, prod_owned = get_products_info()
 
                 # Pressing and judging
                 global_kpd = prod_kpd
@@ -208,30 +229,9 @@ def opa_opa():
                 print("!!!")
             except:
                 print("Unsuccessful save :^(")
-
-                [
-                    '<div onclick="Game.UpgradesById[67].click(event);" class="crate upgrade enabled" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[67],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade2" style="background-position:-96px -432px;"></div>',
-                    '<div onclick="Game.UpgradesById[106].click(event);" class="crate upgrade enabled" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[106],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade0" style="background-position:-576px -192px;"></div>',
-                    '<div onclick="Game.UpgradesById[107].click(event);" class="crate upgrade enabled" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[107],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade1" style="background-position:-624px -192px;"></div>',
-                    '<div onclick="Game.UpgradesById[150].click(event);" class="crate upgrade enabled" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[150],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade3" style="background-position:-864px -192px;"></div>',
-                    '<div onclick="Game.UpgradesById[151].click(event);" class="crate upgrade enabled" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[151],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade4" style="background-position:-864px -144px;"></div>',
-                    '<div onclick="Game.UpgradesById[191].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[191],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade5" style="background-position:-528px -768px;"></div>',
-                    '<div onclick="Game.UpgradesById[256].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[256],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade6" style="background-position:-1248px -144px;"></div>',
-                    '<div onclick="Game.UpgradesById[257].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[257],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade7" style="background-position:-1248px -192px;"></div>',
-                    '<div onclick="Game.UpgradesById[108].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[108],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade8" style="background-position:-864px -624px;"></div>',
-                    '<div onclick="Game.UpgradesById[258].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[258],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade9" style="background-position:-1296px -144px;"></div>',
-                    '<div onclick="Game.UpgradesById[176].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[176],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade10" style="background-position:-672px -48px;"></div>',
-                    '<div onclick="Game.UpgradesById[180].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[180],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade11" style="background-position:-480px -432px;"></div>',
-                    '<div onclick="Game.UpgradesById[416].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[416],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade12" style="background-position:-912px 0px;"></div>',
-                    '<div onclick="Game.UpgradesById[259].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[259],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade13" style="background-position:-1296px -192px;"></div>',
-                    '<div onclick="Game.UpgradesById[260].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[260],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade14" style="background-position:-1344px -144px;"></div>',
-                    '<div onclick="Game.UpgradesById[417].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[417],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade15" style="background-position:-912px -48px;"></div>',
-                    '<div onclick="Game.UpgradesById[261].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[261],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade16" style="background-position:-1344px -192px;"></div>',
-                    '<div onclick="Game.UpgradesById[366].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[366],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade17" style="background-position:-528px -816px;"></div>',
-                    '<div onclick="Game.UpgradesById[262].click(event);" class="crate upgrade" onmouseout="Game.setOnCrate(0);Game.tooltip.shouldHide=1;" onmouseover="if (!Game.mouseDown) {Game.setOnCrate(this);Game.tooltip.dynamic=1;Game.tooltip.draw(this,function(){return function(){return Game.crateTooltip(Game.UpgradesById[262],\'store\');}();},\'store\');Game.tooltip.wobble();}" id="upgrade18" style="background-position:-1392px -144px;"></div>']
-
     driver.close()
 
 
 if __name__ == '__main__':
-    opa_opa()
+    while True:
+        opa_opa()
