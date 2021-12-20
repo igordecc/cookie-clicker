@@ -18,7 +18,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
 
-    url="https://github.com/igordecc/cookie-clicker",
+    url="https://github.com/igordecc/cookie-clicker-bot",
 
     author="igordecc",
 
@@ -31,7 +31,7 @@ setup(
     keyworkd="selenium bot clicker gaming",
 
     project_urls={
-        "Issues": "https://github.com/igordecc/cookie-clicker/issues",
+        "Issues": "https://github.com/igordecc/cookie-clicker-bot/issues",
     },
 
     packages=find_packages(exclude=["examples"]),
