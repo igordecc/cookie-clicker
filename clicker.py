@@ -109,11 +109,14 @@ def opa_opa():
         # let user to press button
         i += 1
         if (i % 100) == 0:
-            time.sleep(1)
+            time.sleep(0.2)
 
         # For clicking the cookie
         try:
             driver.find_element(By.ID, 'bigCookie').click()
+            shimmer = driver.find_element(By.CLASS_NAME, 'shimmer')
+            if shimmer.get_attribute("alt") != "Wrath cookie":
+                shimmer.click()
             shimmers = driver.find_elements(By.CLASS_NAME, 'shimmer')
             for shimmer in shimmers:
                 if shimmer.get_attribute("alt") != "Wrath cookie":
@@ -132,7 +135,7 @@ def opa_opa():
                         prod_price = [convert_zeroes(product.find_element(By.CLASS_NAME, "price").text) for product in products]
                         prod_production = get_production_from_popup(products)
                         prod_kpd = [i[0]/i[1] if i[0]!=0 and i[1]!=0 else 0 for i in zip(prod_production, prod_price)]
-                        prod_kpd[1] = -1    # keck grandmas
+
                         prod_status = [
                             "enabled" if product.get_attribute("class").__contains__("enabled") else "disabled" for
                             product in products]
@@ -143,25 +146,11 @@ def opa_opa():
                         prod_titles = [product.text for product in driver.find_elements(By.XPATH, "//div[@class='content']/div[@class='title']")]
                         prod_owned = [product.text for product in driver.find_elements(By.XPATH, "//div[@class='content']/div[@class='title owned']")]
 
-                        # make to buy undiscovered products
-                        for _price_i in range(1, len(prod_price)):
-                            if prod_kpd[_price_i]==0 and prod_price[_price_i-1]*4>prod_price[_price_i]:
-                                prod_kpd[_price_i] = 2**32
-                                break
-                            elif  prod_kpd[_price_i]==0:
-                                break
-
-                        # print(prod_kpd)
-                        # print(prod_price)
-                        # print(prod_status)
-                        # print(prod_titles)
-                        # print(prod_owned)
-
                         # find max obtainable product
                         # if product if fresh (0 of this product) and product price criteria -> biggest product price== 3*(biggest-1)product : then
                         # biggest product price product kpd = 999
 
-                        return prod_kpd, prod_status, prod_titles, prod_owned
+                        return prod_kpd, prod_status, prod_titles, prod_owned, prod_price
                     except Exception as e:
                         print("!get_products_info error! : " + str(e))
 
@@ -181,16 +170,20 @@ def opa_opa():
                                                      upgrade.get_attribute("outerHTML")) for upgrade in upgrades]
                                                ]
 
-                        # press anything, that isn't a cookie multiplier
-                        upgrades_production_str = [driver.execute_script(_scr) for _scr in description_script]
-                        for _up_i in range(len(upgrades_production_str)):
-                            _upgrades_prod = upgrades_production_str[_up_i]
+                        # click everything, that isn't a cookie multiplier
+                        upgrades_description = [driver.execute_script(_scr) for _scr in description_script]
+                        def _click_upgrade_if_criteria(criteria, upgrades, upgrades_description):
+                            for _up_i in range(len(upgrades_description)):
+                                if criteria(upgrades_description[_up_i]):
+                                    upgrades[_up_i].click()
 
-                            # upgrade_name = re.findall(r"[a-zA-Z\s]*(?= are <b>twice</b> as efficient)", _upgrades_prod)
-                            # print(upgrade_name)
-                            if not re.findall(r"Cookie production multiplier", _upgrades_prod):
-                                upgrades[_up_i].click()
-                        return upgrades_production_str
+                        _click_upgrade_if_criteria(lambda _upgrade:
+                                                        not re.findall(r"Cookie production multiplier", _upgrade) and (not re.findall(r"grandmatriarch", _upgrade)),
+                                                   upgrades,
+                                                   upgrades_description,
+                                                   )
+
+                        return upgrades, upgrades_description
 
                             # TODO extract x2 upgrade names from description
                             # TODO extract upgrade prices
@@ -200,19 +193,47 @@ def opa_opa():
                     except Exception as e:
                         print("!get_upgrades_info error! : " + str(e))
 
-                get_upgrades_info()
-                prod_kpd, status_for_kpd, prod_title, prod_owned = get_products_info()
+                prod_kpd, status_for_kpd, prod_title, prod_owned, prod_price = get_products_info()
+                upgrades, upgrades_description = get_upgrades_info()
 
-                # Pressing and judging
+                # !!! condition the global_kpd !!!
+
+                # prod_kpd[1] = -1  # kick out grandmas
+
+                # make to buy undiscovered products
+                for _price_i in range(1, len(prod_price)):
+                    if prod_kpd[_price_i] == 0 and prod_price[_price_i - 1] * 4 > prod_price[_price_i]:
+                        prod_kpd[_price_i] = 2 ** 16
+                        break
+                    elif prod_kpd[_price_i] == 0:
+                        break
+
+                # make to buy "twice boosters"
+                # for _upgrade_d in upgrades_description:
+                #     _twicers = re.findall(r"[a-zA-Z\s]*(?= are <b>twice</b> as efficient)", _upgrade_d)
+                #     if _twicers:
+                #         for _title in prod_title:
+                #             if _title in _twicers:
+                #                 pass
+                                # then if sum_prod % > 60, and upgrade_ price<prod cost*16:
+                                #
+                        # try:
+                        # upgrades[upgrades_description.index_of(_upgrade_d)].click() NONONO
+                        # kpd = 2**32
+
+
+
+
+                # Pressing unlock products
                 global_kpd = prod_kpd
                 global_status = status_for_kpd
-                xpath_codes = [lambda num: fr"//div[@id='product{num}' and @class='product unlocked enabled']" for _code in range(len(prod_kpd))]
+                xpath_unlock_products = [lambda num: fr"//div[@id='product{num}' and @class='product unlocked enabled']" for _code in range(len(prod_kpd))]
 
                 if global_status[global_kpd.index(max(global_kpd))] == "enabled":
                     max_kpd_element_index = global_kpd.index(max(global_kpd))
-                    product_element_to_buy = driver.find_element(By.XPATH, xpath_codes[max_kpd_element_index](max_kpd_element_index) )
+                    product_element_to_buy = driver.find_element(By.XPATH, xpath_unlock_products[max_kpd_element_index](max_kpd_element_index) )
 
-                    # driver.implicitly_wait(1)
+                    # Click on product button
                     ActionChains(driver).move_to_element(product_element_to_buy).click(product_element_to_buy).perform()
 
             except Exception as e:
@@ -220,7 +241,7 @@ def opa_opa():
 
 
         # Auto-save
-        if (i % 10**4) == 0 and (i>10**4):
+        if (i % (4*10**3)) == 0 and (i>10**3):
             try:
                 driver.find_element(By.ID, "prefsButton").click()
                 driver.find_element(By.XPATH, fr"//a[text()='Save to file']").click()
