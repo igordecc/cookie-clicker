@@ -1,4 +1,4 @@
-# COOKIE !!!!!!!!!!!! +) (C) Trick2g
+# "COOKIE !!!!!!!!!!!!" - Trick2g
 from selenium.webdriver import Keys
 from selenium.webdriver.support import expected_conditions as EC
 
